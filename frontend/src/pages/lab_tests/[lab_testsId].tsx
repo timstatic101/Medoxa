@@ -1,0 +1,159 @@
+import { mdiChartTimelineVariant, mdiUpload } from '@mdi/js';
+import Head from 'next/head';
+import React, { ReactElement, useEffect, useState } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import dayjs from 'dayjs';
+
+import CardBox from '../../components/CardBox';
+import LayoutAuthenticated from '../../layouts/Authenticated';
+import SectionMain from '../../components/SectionMain';
+import SectionTitleLineWithButton from '../../components/SectionTitleLineWithButton';
+import { getPageTitle } from '../../config';
+
+import { Field, Form, Formik } from 'formik';
+import FormField from '../../components/FormField';
+import BaseDivider from '../../components/BaseDivider';
+import BaseButtons from '../../components/BaseButtons';
+import BaseButton from '../../components/BaseButton';
+import FormCheckRadio from '../../components/FormCheckRadio';
+import FormCheckRadioGroup from '../../components/FormCheckRadioGroup';
+import FormFilePicker from '../../components/FormFilePicker';
+import FormImagePicker from '../../components/FormImagePicker';
+import { SelectField } from '../../components/SelectField';
+import { SelectFieldMany } from '../../components/SelectFieldMany';
+import { SwitchField } from '../../components/SwitchField';
+import { RichTextField } from '../../components/RichTextField';
+
+import { update, fetch } from '../../stores/lab_tests/lab_testsSlice';
+import { useAppDispatch, useAppSelector } from '../../stores/hooks';
+import { useRouter } from 'next/router';
+import { saveFile } from '../../helpers/fileSaver';
+import dataFormatter from '../../helpers/dataFormatter';
+import ImageField from '../../components/ImageField';
+
+import { hasPermission } from '../../helpers/userPermissions';
+
+const EditLab_tests = () => {
+  const router = useRouter();
+  const dispatch = useAppDispatch();
+  const initVals = {
+    name: '',
+
+    description: '',
+
+    price: '',
+
+    organizations: null,
+  };
+  const [initialValues, setInitialValues] = useState(initVals);
+
+  const { lab_tests } = useAppSelector((state) => state.lab_tests);
+
+  const { currentUser } = useAppSelector((state) => state.auth);
+
+  const { lab_testsId } = router.query;
+
+  useEffect(() => {
+    dispatch(fetch({ id: lab_testsId }));
+  }, [lab_testsId]);
+
+  useEffect(() => {
+    if (typeof lab_tests === 'object') {
+      setInitialValues(lab_tests);
+    }
+  }, [lab_tests]);
+
+  useEffect(() => {
+    if (typeof lab_tests === 'object') {
+      const newInitialVal = { ...initVals };
+
+      Object.keys(initVals).forEach(
+        (el) => (newInitialVal[el] = lab_tests[el]),
+      );
+
+      setInitialValues(newInitialVal);
+    }
+  }, [lab_tests]);
+
+  const handleSubmit = async (data) => {
+    await dispatch(update({ id: lab_testsId, data }));
+    await router.push('/lab_tests/lab_tests-list');
+  };
+
+  return (
+    <>
+      <Head>
+        <title>{getPageTitle('Edit lab_tests')}</title>
+      </Head>
+      <SectionMain>
+        <SectionTitleLineWithButton
+          icon={mdiChartTimelineVariant}
+          title={'Edit lab_tests'}
+          main
+        >
+          {''}
+        </SectionTitleLineWithButton>
+        <CardBox>
+          <Formik
+            enableReinitialize
+            initialValues={initialValues}
+            onSubmit={(values) => handleSubmit(values)}
+          >
+            <Form>
+              <FormField label='Name'>
+                <Field name='name' placeholder='Name' />
+              </FormField>
+
+              <FormField label='Description' hasTextareaHeight>
+                <Field
+                  name='description'
+                  as='textarea'
+                  placeholder='Description'
+                />
+              </FormField>
+
+              <FormField label='Price'>
+                <Field type='number' name='price' placeholder='Price' />
+              </FormField>
+
+              <FormField label='organizations' labelFor='organizations'>
+                <Field
+                  name='organizations'
+                  id='organizations'
+                  component={SelectField}
+                  options={initialValues.organizations}
+                  itemRef={'organizations'}
+                  showField={'name'}
+                ></Field>
+              </FormField>
+
+              <BaseDivider />
+              <BaseButtons>
+                <BaseButton type='submit' color='info' label='Submit' />
+                <BaseButton type='reset' color='info' outline label='Reset' />
+                <BaseButton
+                  type='reset'
+                  color='danger'
+                  outline
+                  label='Cancel'
+                  onClick={() => router.push('/lab_tests/lab_tests-list')}
+                />
+              </BaseButtons>
+            </Form>
+          </Formik>
+        </CardBox>
+      </SectionMain>
+    </>
+  );
+};
+
+EditLab_tests.getLayout = function getLayout(page: ReactElement) {
+  return (
+    <LayoutAuthenticated permission={'UPDATE_LAB_TESTS'}>
+      {page}
+    </LayoutAuthenticated>
+  );
+};
+
+export default EditLab_tests;

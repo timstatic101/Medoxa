@@ -1,0 +1,181 @@
+import { mdiChartTimelineVariant } from '@mdi/js';
+import Head from 'next/head';
+import { uniqueId } from 'lodash';
+import React, { ReactElement, useState } from 'react';
+import CardBox from '../../components/CardBox';
+import LayoutAuthenticated from '../../layouts/Authenticated';
+import SectionMain from '../../components/SectionMain';
+import SectionTitleLineWithButton from '../../components/SectionTitleLineWithButton';
+import { getPageTitle } from '../../config';
+import TableAppointment_rules from '../../components/Appointment_rules/TableAppointment_rules';
+import BaseButton from '../../components/BaseButton';
+import axios from 'axios';
+import Link from 'next/link';
+import { useAppDispatch, useAppSelector } from '../../stores/hooks';
+import CardBoxModal from '../../components/CardBoxModal';
+import DragDropFilePicker from '../../components/DragDropFilePicker';
+import {
+  setRefetch,
+  uploadCsv,
+} from '../../stores/appointment_rules/appointment_rulesSlice';
+
+import { hasPermission } from '../../helpers/userPermissions';
+
+const Appointment_rulesTablesPage = () => {
+  const [filterItems, setFilterItems] = useState([]);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [isModalActive, setIsModalActive] = useState(false);
+  const [showTableView, setShowTableView] = useState(false);
+
+  const { currentUser } = useAppSelector((state) => state.auth);
+
+  const dispatch = useAppDispatch();
+
+  const [filters] = useState([
+    {
+      label: 'MinHoursBeforeBooking',
+      title: 'min_hours_before_booking',
+      number: 'true',
+    },
+    {
+      label: 'MaxDaysAdvanceBooking',
+      title: 'max_days_advance_booking',
+      number: 'true',
+    },
+
+    { label: 'Department', title: 'department' },
+  ]);
+
+  const hasCreatePermission =
+    currentUser && hasPermission(currentUser, 'CREATE_APPOINTMENT_RULES');
+
+  const addFilter = () => {
+    const newItem = {
+      id: uniqueId(),
+      fields: {
+        filterValue: '',
+        filterValueFrom: '',
+        filterValueTo: '',
+        selectedField: '',
+      },
+    };
+    newItem.fields.selectedField = filters[0].title;
+    setFilterItems([...filterItems, newItem]);
+  };
+
+  const getAppointment_rulesCSV = async () => {
+    const response = await axios({
+      url: '/appointment_rules?filetype=csv',
+      method: 'GET',
+      responseType: 'blob',
+    });
+    const type = response.headers['content-type'];
+    const blob = new Blob([response.data], { type: type });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = 'appointment_rulesCSV.csv';
+    link.click();
+  };
+
+  const onModalConfirm = async () => {
+    if (!csvFile) return;
+    await dispatch(uploadCsv(csvFile));
+    dispatch(setRefetch(true));
+    setCsvFile(null);
+    setIsModalActive(false);
+  };
+
+  const onModalCancel = () => {
+    setCsvFile(null);
+    setIsModalActive(false);
+  };
+
+  return (
+    <>
+      <Head>
+        <title>{getPageTitle('Appointment_rules')}</title>
+      </Head>
+      <SectionMain>
+        <SectionTitleLineWithButton
+          icon={mdiChartTimelineVariant}
+          title='Appointment_rules'
+          main
+        >
+          {''}
+        </SectionTitleLineWithButton>
+        <CardBox className='mb-6' cardBoxClassName='flex flex-wrap'>
+          {hasCreatePermission && (
+            <BaseButton
+              className={'mr-3'}
+              href={'/appointment_rules/appointment_rules-new'}
+              color='info'
+              label='New Item'
+            />
+          )}
+
+          <BaseButton
+            className={'mr-3'}
+            color='info'
+            label='Filter'
+            onClick={addFilter}
+          />
+          <BaseButton
+            className={'mr-3'}
+            color='info'
+            label='Download CSV'
+            onClick={getAppointment_rulesCSV}
+          />
+
+          {hasCreatePermission && (
+            <BaseButton
+              color='info'
+              label='Upload CSV'
+              onClick={() => setIsModalActive(true)}
+            />
+          )}
+
+          <div className='md:inline-flex items-center ms-auto'>
+            <div id='delete-rows-button'></div>
+
+            <Link href={'/appointment_rules/appointment_rules-list'}>
+              Back to <span className='capitalize'>list</span>
+            </Link>
+          </div>
+        </CardBox>
+        <CardBox className='mb-6' hasTable>
+          <TableAppointment_rules
+            filterItems={filterItems}
+            setFilterItems={setFilterItems}
+            filters={filters}
+            showGrid={true}
+          />
+        </CardBox>
+      </SectionMain>
+      <CardBoxModal
+        title='Upload CSV'
+        buttonColor='info'
+        buttonLabel={'Confirm'}
+        // buttonLabel={false ? 'Deleting...' : 'Confirm'}
+        isActive={isModalActive}
+        onConfirm={onModalConfirm}
+        onCancel={onModalCancel}
+      >
+        <DragDropFilePicker
+          file={csvFile}
+          setFile={setCsvFile}
+          formats={'.csv'}
+        />
+      </CardBoxModal>
+    </>
+  );
+};
+
+Appointment_rulesTablesPage.getLayout = function getLayout(page: ReactElement) {
+  return (
+    <LayoutAuthenticated permission={'READ_APPOINTMENT_RULES'}>
+      {page}
+    </LayoutAuthenticated>
+  );
+};
+
+export default Appointment_rulesTablesPage;
